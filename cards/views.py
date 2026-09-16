@@ -1,72 +1,52 @@
 import csv
-from django.http import HttpResponse
-from django.shortcuts import render, redirect
+from datetime import timedelta
+
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count, Sum
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.views import View
 from django.utils import timezone
-from django.db.models import Sum, Q
-from itertools import groupby
-from .models import OwnedCard, Expansion, Card, ValueSnapshot, Game
-from .forms import CSVImportForm, PersonalCSVImportForm, OwnedCardForm
-from marketplace.models import Offer, Transaction
+from django.views import View
+from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+
+from .forms import CSVImportForm, OwnedCardForm, PersonalCSVImportForm
+from .models import Card, Expansion, Game, OwnedCard, ValueSnapshot
+from .services import RANGES, build_chart_series, parse_range, refresh_snapshot
 
 
-# Se loggato, mostra offerte e andamento della collezione
+# Se loggato, mostra l'andamento della collezione con i range selezionabili.
 def home(request):
     if not request.user.is_authenticated:
         games = Game.objects.exclude(logo='')[:4]
         return render(request, 'landing.html', {'games': games})
 
-    #se loggato creo context con quello da mostrare
-    context = {}
+    # Garantisce che lo snapshot di oggi esista e rifletta le carte correnti
+    refresh_snapshot(request.user)
 
-    context['pending_offers'] = Offer.objects.filter(
-        listing__owner=request.user, status='pending', offer_type='offer'
-    ).select_related('listing', 'buyer')
+    # Range selezionato: 1D, 7D, 14D, 1M, 3M, 6M, 1Y, 5Y, ALL
+    range_key = parse_range(request.GET.get('range'))
+    days = RANGES[range_key][1]
 
-    message_roots = Offer.objects.filter(
-        offer_type='message', parent_offer__isnull=True
-    ).filter(
-        Q(buyer=request.user) | Q(listing__owner=request.user)
-    ).select_related('listing', 'buyer') #mostro solo gli ultimi per non intasare
+    snapshots = ValueSnapshot.objects.filter(owner=request.user)
+    if days is not None:
+        start = timezone.now().date() - timedelta(days=days)
+        snapshots = snapshots.filter(date__gte=start)
 
-    unread_messages = []
-    for root in message_roots:
-        latest = root.latest_in_chain()  # notifico solo l'ultimo mess
-        if latest.is_read:
-            continue
-        is_recipient = (
-            (latest.proposed_by == 'buyer' and root.listing.owner == request.user) or  # il messaggio è scritto da me o no?
-            (latest.proposed_by == 'seller' and root.buyer == request.user)
-        )
-        if is_recipient:
-            unread_messages.append(latest)
-    context['unread_messages'] = unread_messages
+    series = build_chart_series(list(snapshots), range_key)
 
-    context['pending_sales'] = Transaction.objects.filter(
-        seller=request.user, status='pending'
-    ).select_related('listing', 'buyer')
-
-    context['pending_purchases'] = Transaction.objects.filter(
-        buyer=request.user, status='pending'
-    ).select_related('listing', 'seller')
-
-    today = timezone.now().date()  # data
-    total = OwnedCard.objects.filter(owner=request.user, status='owned').aggregate(total=Sum('market_value'))['total'] or 0  # tot collezione
-
-    ValueSnapshot.objects.get_or_create(  # get or create, crea valore se non esiste
-        owner=request.user, date=today,
-        defaults={'total_value': total}
-    )
-    snapshots = ValueSnapshot.objects.filter(owner=request.user).order_by('date')
-    # valori per plottare
-    context['chart_labels'] = [s.date.strftime('%d/%m') for s in snapshots]  # del tipo   2026-08-01 → "01/08"
-    context['chart_values'] = [float(s.total_value) for s in snapshots]  # list comprehension valori
+    context = {
+        'ranges': [
+            {'key': key, 'label': label, 'active': key == range_key}
+            for key, (label, _) in RANGES.items()
+        ],
+        'current_range': range_key,
+    }
+    context.update(series)
     return render(request, 'home.html', context)
+
 
 
 # Riutilizzato dalle view che devono operare soltanto sulle carte del proprietario.
@@ -76,26 +56,40 @@ class OwnerRequiredMixin:
         return super().get_queryset().filter(owner=self.request.user)
 
 
-# Carte raggruppate per gioco (get_context_data), usato dal template per le sezioni
+# Collezione con paginazione + filtri (testo sul nome, gioco del catalogo),
+# così la lista resta leggera anche con migliaia di carte.
 class CollectionListView(LoginRequiredMixin, ListView):
     model = OwnedCard
     template_name = 'cards/collection_list.html'
     context_object_name = 'owned_cards'
+    paginate_by = 24
 
     def get_queryset(self):
         # status='owned': esclude le carte vendute, che stanno in un'altra view
-        return OwnedCard.objects.filter(
+        qs = OwnedCard.objects.filter(
             owner=self.request.user, status='owned'
-        ).select_related('card__expansion__game')
+        ).select_related('card__expansion__game').order_by('-id')
+
+        query = self.request.GET.get('q', '').strip()
+        if query:
+            qs = qs.filter(card__name__icontains=query)
+
+        game_id = self.request.GET.get('game', '').strip()
+        if game_id.isdigit():
+            qs = qs.filter(card__expansion__game_id=int(game_id))
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # groupby richiede dati già ordinati per la stessa chiave, quindi li riordino con sorted() prima
-        cards = sorted(context['owned_cards'], key=lambda c: c.card.expansion.game.name)
-        # trasforma la lista piatta in un dict {nome_gioco: [carte]} per il template, così da essere divise per gioco
-        context['cards_by_game'] = {
-            game_name: list(group)
-            for game_name, group in groupby(cards, key=lambda c: c.card.expansion.game.name)
+        # Totali calcolati su TUTTI i risultati del filtro (non solo la pagina)
+        full_qs = self.get_queryset()
+        agg = full_qs.aggregate(count=Count('id'), total=Sum('market_value'))
+        context['total_count'] = agg['count']
+        context['total_value'] = agg['total'] or 0
+        context['games'] = Game.objects.all().order_by('name')
+        context['filters'] = {
+            'q': self.request.GET.get('q', ''),
+            'game': self.request.GET.get('game', ''),
         }
         return context
 
@@ -107,10 +101,18 @@ class OwnedCardCreateView(LoginRequiredMixin, CreateView):
     template_name = 'cards/collection_form.html'
     success_url = reverse_lazy('collection')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Permette di pre-selezionare una carta via ?card=<pk> (es. dal catalogo)
+        preselect = self.request.GET.get('card', '')
+        context['preselect_card_id'] = preselect if preselect.isdigit() else ''
+        return context
 
     def form_valid(self, form):
-        form.instance.owner = self.request.user #imposto automaticamente il valore per garantire il funzionamento
-        return super().form_valid(form)
+        form.instance.owner = self.request.user  # imposto automaticamente il valore per garantire il funzionamento
+        response = super().form_valid(form)
+        refresh_snapshot(self.request.user)  # il valore della collezione è cambiato
+        return response
 
 
 # Aggiorna copia fisica
@@ -121,12 +123,27 @@ class OwnedCardUpdateView(LoginRequiredMixin, OwnerRequiredMixin, UpdateView):
     template_name = 'cards/collection_form.html'
     success_url = reverse_lazy('collection')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['current_card'] = self.object.card  # pre-carica la ricerca nel form
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        refresh_snapshot(self.request.user)
+        return response
+
 
 # Elimina dietro conferma
 class OwnedCardDeleteView(LoginRequiredMixin, OwnerRequiredMixin, DeleteView):
     model = OwnedCard
     template_name = 'cards/collection_confirm_delete.html'
     success_url = reverse_lazy('collection')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        refresh_snapshot(self.request.user)
+        return response
 
 
 # Calcola guadagno/perdita per carta e totale
@@ -268,6 +285,7 @@ class ImportPersonalCollectionView(LoginRequiredMixin, View):
                 )
                 created_count += 1
 
+            refresh_snapshot(request.user)
             messages.success(request, f'Import completato: {created_count} carte aggiunte alla tua collezione.')
             if skipped_rows:
                 # mostra solo le prime 5 righe saltate per non intasare il messaggio
@@ -315,3 +333,40 @@ class ExportCollectionView(LoginRequiredMixin, View):
             ])
 
         return response
+        return response
+
+
+# Endpoint JSON per la ricerca nel catalogo (add/edit carta): sostituisce
+# l'enorme <select> con migliaia di <option> -> ora si cerca e si sceglie.
+class CardSearchView(LoginRequiredMixin, View):
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        if not q:
+            return JsonResponse({'results': []})
+
+        cards = (
+            Card.objects.filter(name__icontains=q)
+            .select_related('expansion')
+            .order_by('name', 'expansion__code', 'number')[:20]
+        )
+
+        results = []
+        for c in cards:
+            image = c.image_url or ''
+            if not image and c.image:
+                try:
+                    image = c.image.url
+                except ValueError:
+                    image = ''
+            results.append({
+                'id': c.id,
+                'name': c.name,
+                'set_code': c.expansion.code,
+                'set_name': c.expansion.name,
+                'number': c.number,
+                'rarity': c.rarity,
+                'image_url': image,
+                'display': f"{c.name} — {c.expansion.code} {c.number}",
+            })
+        return JsonResponse({'results': results})
+

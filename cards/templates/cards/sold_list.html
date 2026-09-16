@@ -17,9 +17,9 @@
 {% for item in cards_with_diff %}  <!-- le carte con differenza sono quelle che sono state vendute -->
 <div class="col-6 col-md-3 mb-3">
     <div class="card">
-        {% if item.card.image %}
+        {% if item.card.display_image_url %}
         <!-- carta scala di grigi per simboleggiare possesso precedente-->
-        <img src="{{ item.card.image.url }}" class="card-img-top" style="filter: grayscale(100%); opacity: 0.6;" alt="{{ item.card.card.name }}">
+        <img src="{{ item.card.display_image_url }}" class="card-img-top" style="filter: grayscale(100%); opacity: 0.6;" alt="{{ item.card.card.name }}">
         {% endif %}
         <div class="card-body">
             <h5 class="card-title">{{ item.card.card.name }}</h5>

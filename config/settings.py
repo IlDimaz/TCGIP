@@ -39,8 +39,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "cards",
     "users",
-    'marketplace',
-
 ]
 
 MIDDLEWARE = [

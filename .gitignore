@@ -17,3 +17,6 @@ db.sqlite3-*
 Thumbs.db
 .idea/
 .vscode/
+
+# Temp files
+test-*.txt

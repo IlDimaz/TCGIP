@@ -4,48 +4,93 @@
 
 {% block content %}
 <h1>La mia collezione</h1>
-<!--bottoni in alto nella pagina collezione con varie funzionalità-->
-
+<!-- bottoni in alto nella pagina collezione con varie funzionalità -->
 <a href="{% url 'collection-add' %}" class="btn btn-primary mb-3">+ Aggiungi carta</a>
 <a href="{% url 'sold-cards' %}" class="btn btn-secondary mb-3">📊 Contabilità (venduti)</a>
 <a href="{% url 'import-personal-collection' %}" class="btn btn-secondary mb-3">📥 Importa da CSV</a>
 <a href="{% url 'export-collection' %}" class="btn btn-secondary mb-3">📤 Esporta collezione CSV</a>
 
-<!-- Lista di carte in collezione, raggruppate per gioco con tanto di logo -->
-{% for game_name, cards in cards_by_game.items %}
-<div class="mb-4">
-    <h4 class="d-flex align-items-center gap-2">
-        {% with cards.0.card.expansion.game as game %}
-            {% if game.logo %}<img src="{{ game.logo.url }}" style="height: 42px;">{% endif %}<!-- dimensione logo -->
-        {% endwith %}
-        {{ game_name }} <!--nome accanto foto -->
-    </h4>
-     <!--lista carte -->
-    <div class="row">
-        {% for owned_card in cards %}
-        <div class="col-6 col-md-3 mb-3">
-            <div class="card">
-                {% if owned_card.image %}
-                <img src="{{ owned_card.image.url }}" class="card-img-top" alt="{{ owned_card.card.name }}">
-                {% endif %}
-                <div class="card-body">
-                    <h5 class="card-title">{{ owned_card.card.name }}</h5> <!--nome-->
-                    <p class="card-text">
-                        {% if owned_card.card_type == 'graded' %} <!--grading -->
-                            {{ owned_card.grading_company }} {{ owned_card.grade }}
-                        {% else %}
-                            {{ owned_card.get_condition_display }} <!--condizioni -->
-                        {% endif %}
-                    </p>
-                    <a href="{% url 'collection-edit' owned_card.pk %}" class="btn btn-sm btn-secondary">Modifica</a> <!-- bottoni -->
-                    <a href="{% url 'collection-delete' owned_card.pk %}" class="btn btn-sm btn-danger">Elimina</a>
-                </div>
+<!-- Filtri: ricerca per nome e per gioco, senza ricaricare migliaia di righe -->
+<form method="get" class="card p-3 mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <input type="text" name="q" value="{{ filters.q }}" class="form-control" placeholder="Cerca per nome carta...">
+        </div>
+        <div class="col-md-4">
+            <select name="game" class="form-select">
+                <option value="">Tutti i giochi</option>
+                {% for game in games %}
+                <option value="{{ game.id }}" {% if filters.game == game.id|stringformat:'s' %}selected{% endif %}>{{ game.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filtra</button>
+            <a href="{% url 'collection' %}" class="btn btn-outline-message">Azzera</a>
+        </div>
+    </div>
+</form>
+
+<!-- Stats collezione -->
+<p class="form-text mb-3">
+    <strong>{{ total_count }}</strong> carte possedute
+    {% if total_value %}— valore totale <strong>{{ total_value|floatformat:2 }}€</strong>{% endif %}
+</p>
+
+<!-- Lista carte in collezione -->
+<div class="row">
+    {% for owned_card in owned_cards %}
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card">
+            {% if owned_card.display_image_url %}
+            <img src="{{ owned_card.display_image_url }}" class="card-img-top" alt="{{ owned_card.card.name }}" loading="lazy">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ owned_card.card.name }}</h5>
+                <p class="form-text mb-1">
+                    {{ owned_card.card.expansion.code }} {{ owned_card.card.number }}
+                    {% if owned_card.card.rarity %}({{ owned_card.card.rarity }}){% endif %}
+                </p>
+                <p class="card-text mb-2">
+                    {% if owned_card.card_type == 'graded' %}
+                        {{ owned_card.grading_company }} {{ owned_card.grade }}
+                    {% else %}
+                        {{ owned_card.get_condition_display }}
+                    {% endif %}
+                    {% if owned_card.market_value is not None %} · {{ owned_card.market_value }}€{% endif %}
+                </p>
+                <a href="{% url 'collection-edit' owned_card.pk %}" class="btn btn-sm btn-secondary">Modifica</a>
+                <a href="{% url 'collection-delete' owned_card.pk %}" class="btn btn-sm btn-danger">Elimina</a>
             </div>
         </div>
-        {% endfor %}
     </div>
+    {% empty %}
+    <p>Non hai ancora nessuna carta nella collezione.</p>
+    {% endfor %}
 </div>
-{% empty %}
-<p>Non hai ancora nessuna carta nella collezione.</p> <!-- eccezione collezione vuota-->
-{% endfor %}
+
+<!-- Paginazione: leggera anche con migliaia di carte -->
+{% if is_paginated %}
+<nav aria-label="Paginazione collezione">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&game={{ filters.game }}">‹</a>
+        </li>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+            <li class="page-item"><a class="page-link" href="?page={{ num }}&q={{ filters.q }}&game={{ filters.game }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&game={{ filters.game }}">›</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
 {% endblock %}

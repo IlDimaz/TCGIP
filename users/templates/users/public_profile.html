@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}{{ profile_user.username }}{% endblock %}
-<!-- pagina pubblica utente, vista da terzi, poche differenze dal profilo privato, principalmente assenza tasto modifica -->
+<!-- pagina pubblica utente, vista da terzi -->
 
 {% block content %}
 <h1>{{ profile_user.username }}</h1>
@@ -11,45 +11,29 @@
 <p>📍 {{ profile_user.city }}{% if profile_user.province %}, {{ profile_user.province }}{% endif %}{% if profile_user.country %}, {{ profile_user.country }}{% endif %}</p>
 {% endif %}
 
-<h5 class="mt-4">Annunci attivi</h5>
-<div class="row">
-    {% for listing in listings %}
-    <div class="col-6 col-md-3 mb-3">
-        <div class="card">
-            {% if listing.owned_card.image %}
-            <img src="{{ listing.owned_card.image.url }}" class="card-img-top" alt="{{ listing.owned_card.card.name }}">
-            {% endif %}
-            <div class="card-body">
-                <h5 class="card-title">{{ listing.owned_card.card.name }}</h5>
-                <p class="card-text">{{ listing.price }}€</p>
-                <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-secondary">Dettagli</a>
-            </div>
-        </div>
-    </div>
-    {% empty %}
-    <p>Nessun annuncio attivo al momento.</p>
-    {% endfor %}
-</div>
-
 <h5 class="mt-4">Collezione</h5>
 {% if collection is not None %}
+<p class="form-text">
+    <strong>{{ collection_count }}</strong> carte possedute —
+    valore totale <strong>{{ collection_value|floatformat:2 }}€</strong>
+</p>
 <div class="row">
-    {% for owned_card in collection %}
+    {% for owned_card in collection|slice:":24" %}
     <div class="col-6 col-md-3 mb-3">
         <div class="card">
-            {% if owned_card.image %}
-            <img src="{{ owned_card.image.url }}" class="card-img-top" alt="{{ owned_card.card.name }}">
+            {% if owned_card.display_image_url %}
+            <img src="{{ owned_card.display_image_url }}" class="card-img-top" alt="{{ owned_card.card.name }}">
             {% endif %}
             <div class="card-body">
                 <h6 class="card-title">{{ owned_card.card.name }}</h6>
-                <p class="form-text mb-1">{{ owned_card.condition }}</p>
-                {% with listing=owned_card.listings.first %}
-                    {% if listing and listing.is_active %}
-                    <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-primary w-100">
-                        In vendita: {{ listing.price }}€
-                    </a>
+                <p class="form-text mb-1">
+                    {{ owned_card.card.expansion.code }} {{ owned_card.card.number }}
+                    {% if owned_card.card_type == 'graded' %}
+                        · {{ owned_card.grading_company }} {{ owned_card.grade }}
+                    {% else %}
+                        · {{ owned_card.get_condition_display }}
                     {% endif %}
-                {% endwith %}
+                </p>
             </div>
         </div>
     </div>
@@ -65,21 +49,4 @@
 {% else %}
 <p>Questo utente ha reso la propria collezione privata.</p>
 {% endif %}
-
-<h5 class="mt-4">Recensioni ricevute</h5>
-{% for review in reviews %}
-<div class="card mb-2 p-2">
-    <p>
-        <strong>{{ review.rating }}/5</strong> —
-        {{ review.transaction.listing.owned_card.card.name }}
-        venduta a {{ review.transaction.price }}€
-    </p>
-    {% if review.comment %}
-    <p class="fst-italic">"{{ review.comment }}"</p>
-    {% endif %}
-</div>
-{% empty %}
-<p>Nessuna recensione ricevuta al momento.</p>
-{% endfor %}
-
 {% endblock %}

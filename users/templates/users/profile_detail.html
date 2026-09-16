@@ -2,8 +2,6 @@
 
 {% block title %}Il mio profilo{% endblock %}
 
-<!-- Nota: sezione annunci+recensioni simile in public_profile.html/profile_detail.html.
- è possibile fare refactoring e mettere un terzo template con dati in comune se necessario per miglior leggibilità -->
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1>Il mio profilo</h1>
@@ -25,41 +23,14 @@
 <p>Nessuna posizione impostata.</p>
 {% endif %}
 
-<h5 class="mt-4">I miei annunci attivi</h5>
-<div class="row">
-    {% for listing in listings %}
-    <div class="col-6 col-md-3 mb-3">
-        <div class="card">
-            {% if listing.owned_card.image %}
-            <img src="{{ listing.owned_card.image.url }}" class="card-img-top" alt="{{ listing.owned_card.card.name }}">
-            {% endif %}
-            <div class="card-body">
-                <h5 class="card-title">{{ listing.owned_card.card.name }}</h5>
-                <p class="card-text">{{ listing.price }}€</p>
-                <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-secondary">Dettagli</a>
-            </div>
-        </div>
-    </div>
-    {% empty %}
-    <p>Nessun annuncio attivo al momento.</p>
-    {% endfor %}
-</div>
-
-<!-- recensioni, visibile sia dall'utente stesso che similmente implementata sul profilo pubblico-->
-
-<h5 class="mt-4">Recensioni ricevute</h5>
-{% for review in reviews %}
-<div class="card mb-2 p-2">
-    <p>
-        <strong>{{ review.rating }}/5</strong> —
-        {{ review.transaction.listing.owned_card.card.name }}
-        venduta a {{ review.transaction.price }}€
-    </p>
-    {% if review.comment %}
-    <p class="fst-italic">"{{ review.comment }}"</p>
-    {% endif %}
-</div>
-{% empty %}
-<p>Nessuna recensione ricevuta.</p>
-{% endfor %}
+<h5 class="mt-4">La mia collezione</h5>
+<p class="form-text">
+    <strong>{{ collection_count }}</strong> carte possedute —
+    valore totale <strong>{{ collection_value|floatformat:2 }}€</strong>
+</p>
+<p class="form-text">
+    La collezione è <strong>{% if profile_user.collection_public %}pubblica{% else %}privata{% endif %}</strong> —
+    <a href="{% url 'profile-edit' %}">cambia la visibilità dalle impostazioni</a>.
+</p>
+<a href="{% url 'collection' %}" class="btn btn-primary">Vai alla collezione</a>
 {% endblock %}

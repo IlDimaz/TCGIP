@@ -4,82 +4,62 @@
 
 {% block content %}
 <div class="container">
-    <div class="row">
-        <!-- Colonna Sinistra delle notifiche -->
-        <div class="col-12 mb-4 notifications-grid">
-            {% if pending_offers %}
-            <div class="card p-3 notifications-scroll">
-                <h5>🔔 Offerte in attesa</h5>
-                {% for offer in pending_offers %}
-                <p class="mb-2">
-                    <a href="{% url 'marketplace-detail' offer.listing.pk %}">{{ offer.listing.owned_card.card.name }} — {{ offer.listing.owned_card.card.expansion.code }} {{ offer.listing.owned_card.card.number }}</a><br>
-                    <span>{{ offer.buyer.username }} ha offerto {{ offer.amount }}€</span>
-                </p>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="card p-3 notifications-scroll">
-                <h5>🔔 Offerte in attesa</h5>
-                <p>Nessuna offerta al momento.</p>
-            </div>
-            {% endif %}
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <!-- Riepilogo valore collezione -->
+            <div class="card p-3 mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h5 class="mb-1">Valore collezione <span class="badge badge-gold ms-1">{{ current_range }}</span></h5>
+                        <span class="fs-3 fw-bold">{{ current|floatformat:2 }}€</span>
+                        {% if change_pct is not None %}
+                        <span class="fs-5 ms-2 {% if change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if change_pct >= 0 %}▲ +{% else %}▼ {% endif %}{{ change_pct|floatformat:2 }}%
+                        </span>
+                        <small class="text-muted ms-2">
+                            ({{ change_abs|floatformat:2 }}€ nel range selezionato)
+                        </small>
+                        {% else %}
+                        <small class="text-muted ms-2">niente dati nel range</small>
+                        {% endif %}
+                    </div>
 
-            {% if unread_messages %}
-            <div class="card p-3 notifications-scroll">
-                <h5>💬 Messaggi</h5>
-                {% for msg in unread_messages %}
-                <p class="mb-2">
-                    <a href="{% url 'marketplace-detail' msg.listing.pk %}">{{ msg.listing.owned_card.card.name }} — {{ msg.listing.owned_card.card.expansion.code }} {{ msg.listing.owned_card.card.number }}</a><br>
-                    <span>Messaggio</span>
-                </p>
-                {% endfor %}
+                    <!-- Menu range: 1D 7D 14D 1M 3M 6M 1Y 5Y ALL -->
+                    <div class="btn-group range-menu" role="group" aria-label="Range grafico">
+                        {% for r in ranges %}
+                        <a href="{% url 'home' %}?range={{ r.key }}"
+                           class="btn btn-sm {% if r.active %}btn-primary{% else %}btn-outline-message{% endif %}">
+                            {{ r.label }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-            {% endif %}
 
-            {% if pending_sales %}
-            <div class="card p-3 notifications-scroll">
-                <h5>📦 Vendite da completare</h5>
-                {% for t in pending_sales %}
-                <p class="mb-2">
-                    <a href="{% url 'my-sales' %}">{{ t.listing.owned_card.card.name }}</a><br>
-                    <span>venduta a {{ t.buyer.username }} per {{ t.price }}€ — scegli il corriere</span>
-                </p>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            {% if pending_purchases %}
-            <div class="card p-3 mt-3">
-                <h5>🛒 Acquisti in corso</h5>
-                {% for p in pending_purchases %}
-                <p class="mb-2">
-                    <a href="{% url 'my-purchases' %}">{{ p.listing.owned_card.card.name }}</a><br>
-                    <span>{{ p.price }}€ — in attesa che {{ p.seller.username }} scelga la spedizione</span>
-                </p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Colonna centrale, grafico -->
-        <div class="col-12 mb-4">
-            <div class="card p-3">
+            <!-- Grafico andamento collezione (valori RELATIVI: primo punto = 100) -->
+            <div class="card p-3 mb-4">
                 <h5>Andamento valore collezione</h5>
-                <canvas id="valueChart"></canvas>
+                <p class="form-text mb-3">
+                    Il grafico mostra il valore <strong>relativo</strong> alla prima rilevazione del periodo: ogni giorno è espresso su una base 100,
+                    quindi salite e discese sono immediatamente confrontabili tra loro.
+                </p>
+                <canvas id="valueChart" height="110"></canvas>
             </div>
         </div>
     </div>
 </div>
 
 {% if user.is_authenticated %}
-{{ chart_labels|json_script:"chart-labels" }}
-{{ chart_values|json_script:"chart-values" }}
+{{ labels|json_script:"chart-labels" }}
+{{ values|json_script:"chart-values" }}
+{{ relative|json_script:"chart-relative" }}
 
 <!-- scripting per il plotting -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>          <!-- carico cahart.js-->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>          <!-- carico chart.js-->
 <script>
     const labels = JSON.parse(document.getElementById('chart-labels').textContent);
     const values = JSON.parse(document.getElementById('chart-values').textContent);
+    const relative = JSON.parse(document.getElementById('chart-relative').textContent);
 
     const ctx = document.getElementById('valueChart');
 
@@ -88,25 +68,36 @@
         data: {
             labels: labels,
             datasets: [{
-                label: 'Valore collezione (€)',
-                data: values,
+                label: 'Valore collezione (base 100)',
+                data: relative,
                 borderColor: '#d4af37',
                 backgroundColor: 'rgba(212, 175, 55, 0.1)',
                 fill: true,
-                tension: 0.3
+                tension: 0.3,
+                pointRadius: labels.length > 60 ? 0 : 3
             }]
         },
         options: {
             responsive: true,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { labels: { color: '#f0f0f0' } }
+                legend: { labels: { color: '#f0f0f0' } },
+                tooltip: {
+                    callbacks: {
+                        label: function (tooltipItem) {
+                            const idx = tooltipItem.dataIndex;
+                            return ` ${tooltipItem.parsed.y.toFixed(2)} (${values[idx].toFixed(2)}€)`;
+                        }
+                    }
+                }
             },
             scales: {
-                x: { ticks: { color: '#a0a0a0' } },
-                y: { ticks: { color: '#a0a0a0' } }
+                x: { ticks: { color: '#a0a0a0', maxTicksLimit: 12 } },
+                y: { ticks: { color: '#a0a0a0', callback: v => v.toFixed(0) + '' } }
             }
         }
     });
 </script>
 {% endif %}
 {% endblock %}
+

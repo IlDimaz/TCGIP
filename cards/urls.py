@@ -11,4 +11,5 @@ urlpatterns = [
     path('collection/sold/', views.SoldCardsListView.as_view(), name='sold-cards'),
     path('collection/import/', views.ImportPersonalCollectionView.as_view(), name='import-personal-collection'),
     path('collection/export/', views.ExportCollectionView.as_view(), name='export-collection'),
+    path('api/cards/search/', views.CardSearchView.as_view(), name='card-search'),
 ]

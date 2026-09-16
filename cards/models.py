@@ -1,13 +1,16 @@
 from django.db import models
 
-#semplice creazione tcg di turno
+
+# semplice creazione tcg di turno
 class Game(models.Model):
     name = models.CharField(max_length=100)
     logo = models.ImageField(upload_to='cards/games/', blank=True, null=True)
+
     def __str__(self):
         return self.name
 
-#semplice creazione espansione di turno
+
+# semplice creazione espansione di turno
 class Expansion(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20, unique=True)
@@ -19,14 +22,18 @@ class Expansion(models.Model):
 
 
 class Card(models.Model):
-    name = models.CharField(max_length=100)
-    expansion = models.ForeignKey( #ogni carta ha 1 espansione, se cessa di esistere, la carta scompare di conseguenza
+    name = models.CharField(max_length=100, db_index=True)
+    expansion = models.ForeignKey(  # ogni carta ha 1 espansione, se cessa di esistere, la carta scompare di conseguenza
         Expansion,
         on_delete=models.CASCADE,
         related_name="cards"
     )
-    number = models.CharField(max_length=20)
-    rarity = models.CharField(max_length=50)
+    number = models.CharField(max_length=20, db_index=True)
+    rarity = models.CharField(max_length=50, blank=True, default='')
+    # Immagini dal catalogo: image_url punta alla fonte remota (es. Scryfall),
+    # image è una copia locale scaricata opzionalmente dal management command.
+    image_url = models.URLField(max_length=500, blank=True)
+    image = models.ImageField(upload_to='cards/catalog/', null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} - {self.expansion.code} {self.number}"
@@ -80,19 +87,43 @@ class OwnedCard(models.Model):
     language = models.CharField(max_length=30, default="Italiano")
     notes = models.TextField(blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner', 'status']),
+        ]
+
     def __str__(self):
         return f"{self.card.name} owned by {self.owner.username}"
 
+    @property
+    def display_image_url(self):
+        """Immagine da mostrare in lista/dettaglio: foto scattata dall'utente,
+        poi immagine del catalogo (locale/remota), altrimenti placeholder."""
+        uploads = []
+        if self.image:
+            uploads.append(self.image)
+        if self.card and self.card.image:
+            uploads.append(self.card.image)
+        for f in uploads:
+            try:
+                if f and getattr(f, 'name'):
+                    return f.url
+            except ValueError:
+                continue
+        if self.card and self.card.image_url:
+            return self.card.image_url
+        return None
+
 
 # Gestione andamento collezione, valore salvato una volta per giorno per gestire il plotting del grafico relativo al valore nel tempo
-class ValueSnapshot(models.Model): #creazione tabella registrante prezzo e data, dati poi usati per il plotting
+class ValueSnapshot(models.Model):  # creazione tabella registrante prezzo e data, dati poi usati per il plotting
     owner = models.ForeignKey("users.User", on_delete=models.CASCADE, related_name="value_snapshots")
     date = models.DateField()
     total_value = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
-        unique_together = ['owner', 'date'] #1 owner può avere al più 1 valore per data
-        ordering = ['date'] #sort by date, comodo per plot
+        unique_together = ['owner', 'date']  # 1 owner può avere al più 1 valore per data
+        ordering = ['date']  # sort by date, comodo per plot
 
     def __str__(self):
-        return f"{self.owner.username} - {self.date} - {self.total_value}€" #print simil "Dima - 2026-08-20 - 1250.50€"
+        return f"{self.owner.username} - {self.date} - {self.total_value}€"  # print simil "Dima - 2026-08-20 - 1250.50€"

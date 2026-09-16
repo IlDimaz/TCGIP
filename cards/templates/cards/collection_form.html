@@ -5,14 +5,27 @@
 {% block content %}
 <h1>{% if object %}Modifica carta{% else %}Aggiungi carta{% endif %}</h1>
 
-<!-- Form vari ed eventuali caratterizzanti la carta posseduta fisicamente-->
+<!-- Form vari ed eventuali caratterizzanti la carta posseduta fisicamente -->
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
 
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
     <div class="mb-3">
         <label class="form-label">{{ form.card.label }}</label>
-        <input type="text" id="card-filter" class="form-control mb-2" placeholder="Filtra carta per nome intero...">
-        {{ form.card }}
+        {{ form.card }} <!-- campo nascosto compilato dalla ricerca qui sotto -->
+        <div class="autocomplete-wrap">
+            <input type="text" id="card-search" class="form-control"
+                   placeholder="Cerca la carta per nome (es. Charizard, Black Lotus...)"
+                   autocomplete="off">
+            <div id="card-search-results" class="autocomplete-list"></div>
+        </div>
+        <div id="card-selected" class="card-selected mt-2"></div>
+        {% if form.card.errors %}
+        <div class="text-danger small mt-1">{{ form.card.errors }}</div>
+        {% endif %}
     </div>
 
     <div class="mb-3">
@@ -46,7 +59,7 @@
         <label class="form-label">{{ form.notes.label }}</label>
         {{ form.notes }}
     </div>
-    
+
     <div class="mb-3">
         <label class="form-label">{{ form.status.label }}</label>
         {{ form.status }}
@@ -65,7 +78,20 @@
     <button type="submit" class="btn btn-primary">Salva</button>
 </form>
 
-<!-- JS per mostrare/nascondere i campi condition o grading in base al card_type selezionato-->
+{% if current_card %}
+<!-- carta attuale (modifica) pre-caricata come JSON -->
+<script id="current-card-data" type="application/json">
+{
+    "id": {{ current_card.id }},
+    "name": "{{ current_card.name|escapejs }}",
+    "set_code": "{{ current_card.expansion.code|escapejs }}",
+    "number": "{{ current_card.number|escapejs }}",
+    "image_url": "{{ current_card.image_url|escapejs }}"
+}
+</script>
+{% endif %}
+
+<!-- JS per mostrare/nascondere i campi condition o grading in base al card_type selezionato -->
 <script>
     function toggleConditionFields() {
         const cardType = document.getElementById('id_card_type').value;
@@ -84,14 +110,100 @@
     document.getElementById('id_card_type').addEventListener('change', toggleConditionFields);
     toggleConditionFields();
 
-    // Filtro per nome intero della carta (massimo 10 righe)
-    const cardFilter = document.getElementById('card-filter');
-    cardFilter.addEventListener('input', function() {
-        const q = this.value.toLowerCase();
-        for (const opt of document.querySelector('select[name="card"]').options) {
-            opt.hidden = q !== '' && !opt.text.toLowerCase().includes(q);
+    /* ===== Ricerca automatica del catalogo (sostituisce il select con migliaia di opzioni) ===== */
+    const searchInput = document.getElementById('card-search');
+    const resultsBox = document.getElementById('card-search-results');
+    const hiddenCard = document.getElementById('id_card');
+    const selectedBox = document.getElementById('card-selected');
+
+    let debounceTimer;
+    const SEARCH_URL = "{% url 'card-search' %}";
+
+    function selectCard(card) {
+        hiddenCard.value = card.id;
+        searchInput.value = card.name || card.display || '';
+        const img = card.image_url
+            ? `<img src="${card.image_url}" alt="" class="card-selected-img">`
+            : '';
+        selectedBox.innerHTML = `<div class="d-flex align-items-center gap-2">${img}
+            <div>
+                <strong>${card.name || ''}</strong><br>
+                <small class="form-text">${card.set_code || ''} ${card.number || ''}</small>
+            </div>
+        </div>`;
+        resultsBox.style.display = 'none';
+    }
+
+    function renderResults(results) {
+        if (!results.length) {
+            resultsBox.innerHTML = '<div class="autocomplete-empty">Nessuna carta trovata.</div>';
+        } else {
+            resultsBox.innerHTML = results.map(item => {
+                const img = item.image_url
+                    ? `<img src="${item.image_url}" alt="" class="autocomplete-thumb" loading="lazy">`
+                    : `<span class="autocomplete-thumb autocomplete-thumb-empty">📇</span>`;
+                return `<button type="button" class="autocomplete-item" data-id="${item.id}"
+                        data-name="${item.name}" data-set="${item.set_code}" data-number="${item.number}"
+                        data-image="${item.image_url}">
+                    ${img}
+                    <span class="autocomplete-text">
+                        <strong>${item.name}</strong><br>
+                        <small class="form-text">${item.set_code} ${item.number}${item.rarity ? ' · ' + item.rarity : ''}</small>
+                    </span>
+                </button>`;
+            }).join('');
+        }
+        resultsBox.style.display = 'block';
+    }
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        const q = this.value.trim();
+        if (!q) {
+            resultsBox.style.display = 'none';
+            return;
+        }
+        debounceTimer = setTimeout(function () {
+            fetch(SEARCH_URL + '?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => renderResults(data.results))
+                .catch(() => {
+                    resultsBox.innerHTML = '<div class="autocomplete-empty">Errore di ricerca.</div>';
+                    resultsBox.style.display = 'block';
+                });
+        }, 250);
+    });
+
+    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+
+    resultsBox.addEventListener('click', function (e) {
+        const item = e.target.closest('.autocomplete-item');
+        if (!item) return;
+        selectCard({
+            id: item.dataset.id,
+            name: item.dataset.name,
+            set_code: item.dataset.set,
+            number: item.dataset.number,
+            image_url: item.dataset.image,
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.autocomplete-wrap')) {
+            resultsBox.style.display = 'none';
         }
     });
-    cardFilter.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+
+    // Pre-caricamento: modifica -> carta attuale; crea -> eventuale ?card=<pk>
+    const currentData = document.getElementById('current-card-data');
+    if (currentData) {
+        selectCard(JSON.parse(currentData.textContent));
+    }
+    {% if preselect_card_id %}
+    if (!currentData) {
+        hiddenCard.value = {{ preselect_card_id }};
+        searchInput.value = 'Carta #{{ preselect_card_id }}';
+    }
+    {% endif %}
 </script>
 {% endblock %}

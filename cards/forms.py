@@ -51,14 +51,16 @@ class CSVImportForm(forms.Form):
                 )
         return cleaned_data
 
-#semplice form inserimento carte con parametri vari ed eventuali
+# semplice form inserimento carte con parametri vari ed eventuali
 class OwnedCardForm(forms.ModelForm):
     class Meta:
         model = OwnedCard
         fields = ['card', 'image', 'card_type', 'condition', 'grading_company', 'grade',
                   'language', 'notes', 'purchase_price', 'market_value', 'status']
         widgets = {
-            'card': forms.Select(attrs={'class': 'form-select'}),
+            # 'card' è nascosto: il template offre una ricerca che compila questo campo.
+            # Niente più <select> con migliaia di <option> -> la pagina resta leggera.
+            'card': forms.HiddenInput(attrs={'id': 'id_card'}),
             'card_type': forms.Select(attrs={'class': 'form-select', 'id': 'id_card_type'}),
             'condition': forms.Select(attrs={'class': 'form-select', 'id': 'id_condition'}),
             'grading_company': forms.Select(attrs={'class': 'form-select', 'id': 'id_grading_company'}),
@@ -68,6 +70,12 @@ class OwnedCardForm(forms.ModelForm):
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'market_value': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
+        }
+        error_messages = {
+            'card': {
+                'required': 'Seleziona una carta dal catalogo usando la ricerca qui sopra.',
+                'invalid_choice': 'La carta selezionata non è più disponibile nel catalogo.',
+            },
         }
 
 # Import collezione personale, attenzione, le carte devono già esistere nel catalogo  

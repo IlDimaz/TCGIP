@@ -2,7 +2,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, UpdateView, DetailView, ListView
 from django.contrib import messages
-from marketplace.models import Review
+from django.db.models import Sum
 from cards.models import OwnedCard 
 from .forms import CustomUserCreationForm, ProfileForm
 from .models import User
@@ -14,7 +14,7 @@ class SignUpView(CreateView):
     success_url = reverse_lazy('login')
     template_name = 'registration/signup.html'
 
-# Mostra il profilo con annunci e recensioni dell'utente corrente.
+# Mostra il profilo con le statistiche della collezione dell'utente corrente.
 class ProfileDetailView(LoginRequiredMixin, DetailView):
     model = User
     template_name = 'users/profile_detail.html'
@@ -25,8 +25,13 @@ class ProfileDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['listings'] = self.request.user.listings.filter(is_active=True)
-        context['reviews'] = Review.objects.filter(transaction__seller=self.request.user)
+        context['collection_count'] = OwnedCard.objects.filter(
+            owner=self.request.user, status='owned'
+        ).count()
+        context['collection_value'] = (
+            OwnedCard.objects.filter(owner=self.request.user, status='owned')
+            .aggregate(total=Sum('market_value'))['total'] or 0
+        )
         return context
 
 # Aggiorna esclusivamente il profilo dell'utente autenticato.
@@ -52,17 +57,21 @@ class PublicProfileView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['listings'] = self.object.listings.filter(is_active=True)
-        context['reviews'] = Review.objects.filter(transaction__seller=self.object)
+        agg = OwnedCard.objects.filter(owner=self.object, status='owned').aggregate(
+            total=Sum('market_value')
+        )
+        context['collection_value'] = agg['total'] or 0
 
         # Collezione visibile solo se pubblica O se sei tu stesso
         is_owner = self.request.user == self.object
         if self.object.collection_public or is_owner:
             context['collection'] = OwnedCard.objects.filter(
                 owner=self.object, status='owned'
-            ).select_related('card').prefetch_related('listings')
+            ).select_related('card__expansion__game')
+            context['collection_count'] = context['collection'].count()
         else:
             context['collection'] = None
+            context['collection_count'] = 0
         context['is_owner'] = is_owner
         return context
     
