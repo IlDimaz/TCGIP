@@ -9,6 +9,7 @@ dependencies = [
     "django>=6.0.7",
     "gunicorn>=26.2.0",
     "pillow>=12.3.0",
+    "psycopg[binary]>=3.3.5",
     "python-dotenv>=1.2.3",
     "whitenoise>=6.12.0",
 ]

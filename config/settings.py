@@ -32,7 +32,12 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_flag('DJANGO_DEBUG', default=True)
+# Default "safety-first": se esiste DATABASE_URL (quindi siamo su un deploy)
+# e DJANGO_DEBUG non è impostata, DEBUG parte a False. In locale resta True.
+DEBUG = env_flag(
+    'DJANGO_DEBUG',
+    default=not bool(os.environ.get('DATABASE_URL')),
+)
 
 _APP_DOMAIN = os.environ.get('DJANGO_APP_DOMAIN', '')  # es. tcgip.onrender.com
 _allowed = os.environ.get('DJANGO_ALLOWED_HOSTS')
