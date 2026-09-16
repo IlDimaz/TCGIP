@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}TCGIP{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center text-center" style="min-height: 70vh;">
+
+    <div class="d-flex align-items-center justify-content-center gap-4 mb-2">
+        <!-- 2 loghi a sinistra -->
+        <div class="d-flex flex-column gap-3">
+            {% for game in games|slice:":2" %}
+            <img src="{{ game.logo.url }}" alt="{{ game.name }}" style="height: 100px; width: 100px; object-fit: contain;">
+            {% endfor %}
+        </div>
+
+        <h1 style="font-size: 7.67rem;">TCGIP</h1>
+
+        <!-- 2 loghi a destra -->
+        <div class="d-flex flex-column gap-3">
+            {% for game in games|slice:"2:4" %}
+            <img src="{{ game.logo.url }}" alt="{{ game.name }}" style="height: 100px; width: 100px; object-fit: contain;">
+            {% endfor %}
+        </div>
+    </div>
+
+ <p class="text-light mb-4" style="max-width: 6000px; font-size: 1.4rem;">
+    Compra, vendi e scambia carte con altri giocatori e collezionisti.<br>
+    Tieni traccia delle tue carte e del loro valore, tutto in un unico sito.
+</p>
+    <div class="d-flex gap-3">
+        <a href="{% url 'login' %}" class="btn btn-primary btn-lg">Accedi</a>
+        <a href="{% url 'signup' %}" class="btn btn-outline-message btn-lg">Registrati</a>
+    </div>
+</div>
+{% endblock %}

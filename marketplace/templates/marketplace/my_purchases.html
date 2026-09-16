@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}I miei acquisti{% endblock %}
+
+{% block content %}
+<h1>I miei acquisti</h1>
+<!-- gestione pagina "i miei acquisti" -->
+
+<!-- Form recensione: solo se completed e non già recensita (ReviewCreateView) -->
+{% for transaction in transactions %}
+<div class="card mb-3 p-3">
+    <p>
+        <strong>{{ transaction.listing.owned_card.card.name }}</strong> —
+        {{ transaction.price }}€ —
+        Venditore: <a href="{% url 'public-profile' transaction.seller.username %}">{{ transaction.seller.username }}</a> —
+        Stato: {{ transaction.get_status_display }}
+        {% if transaction.carrier %}
+        — Corriere: {{ transaction.get_carrier_display }} ({{ transaction.shipping_cost }}€)
+        {% endif %}
+    </p>
+
+    {% if transaction.status == 'completed' %}
+        {% if transaction.review %}
+        <p class="text-muted">Hai già recensito questa transazione ({{ transaction.review.rating }}/5).</p>
+        {% else %}
+        <form method="post" action="{% url 'review-create' transaction.pk %}">
+            {% csrf_token %}
+            <label>Voto (1-5):</label>
+            <input type="number" name="rating" min="1" max="5" class="form-control mb-2" required>
+            <label>Commento:</label>
+            <textarea name="comment" class="form-control mb-2" rows="2"></textarea>
+            <button type="submit" class="btn btn-primary btn-sm">Lascia recensione</button>
+        </form>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% empty %}
+<p>Non hai ancora effettuato acquisti.</p>
+{% endfor %}
+{% endblock %}

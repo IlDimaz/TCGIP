@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- Colonna Sinistra delle notifiche -->
+        <div class="col-12 mb-4 notifications-grid">
+            {% if pending_offers %}
+            <div class="card p-3 notifications-scroll">
+                <h5>🔔 Offerte in attesa</h5>
+                {% for offer in pending_offers %}
+                <p class="mb-2">
+                    <a href="{% url 'marketplace-detail' offer.listing.pk %}">{{ offer.listing.owned_card.card.name }} — {{ offer.listing.owned_card.card.expansion.code }} {{ offer.listing.owned_card.card.number }}</a><br>
+                    <span>{{ offer.buyer.username }} ha offerto {{ offer.amount }}€</span>
+                </p>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card p-3 notifications-scroll">
+                <h5>🔔 Offerte in attesa</h5>
+                <p>Nessuna offerta al momento.</p>
+            </div>
+            {% endif %}
+
+            {% if unread_messages %}
+            <div class="card p-3 notifications-scroll">
+                <h5>💬 Messaggi</h5>
+                {% for msg in unread_messages %}
+                <p class="mb-2">
+                    <a href="{% url 'marketplace-detail' msg.listing.pk %}">{{ msg.listing.owned_card.card.name }} — {{ msg.listing.owned_card.card.expansion.code }} {{ msg.listing.owned_card.card.number }}</a><br>
+                    <span>Messaggio</span>
+                </p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if pending_sales %}
+            <div class="card p-3 notifications-scroll">
+                <h5>📦 Vendite da completare</h5>
+                {% for t in pending_sales %}
+                <p class="mb-2">
+                    <a href="{% url 'my-sales' %}">{{ t.listing.owned_card.card.name }}</a><br>
+                    <span>venduta a {{ t.buyer.username }} per {{ t.price }}€ — scegli il corriere</span>
+                </p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if pending_purchases %}
+            <div class="card p-3 mt-3">
+                <h5>🛒 Acquisti in corso</h5>
+                {% for p in pending_purchases %}
+                <p class="mb-2">
+                    <a href="{% url 'my-purchases' %}">{{ p.listing.owned_card.card.name }}</a><br>
+                    <span>{{ p.price }}€ — in attesa che {{ p.seller.username }} scelga la spedizione</span>
+                </p>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Colonna centrale, grafico -->
+        <div class="col-12 mb-4">
+            <div class="card p-3">
+                <h5>Andamento valore collezione</h5>
+                <canvas id="valueChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if user.is_authenticated %}
+{{ chart_labels|json_script:"chart-labels" }}
+{{ chart_values|json_script:"chart-values" }}
+
+<!-- scripting per il plotting -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>          <!-- carico cahart.js-->
+<script>
+    const labels = JSON.parse(document.getElementById('chart-labels').textContent);
+    const values = JSON.parse(document.getElementById('chart-values').textContent);
+
+    const ctx = document.getElementById('valueChart');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Valore collezione (€)',
+                data: values,
+                borderColor: '#d4af37',
+                backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: '#f0f0f0' } }
+            },
+            scales: {
+                x: { ticks: { color: '#a0a0a0' } },
+                y: { ticks: { color: '#a0a0a0' } }
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

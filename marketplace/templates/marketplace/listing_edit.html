@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Modifica inserzione{% endblock %}
+{% block content %}
+<!-- gestione le mie inserzioni->modifica, semplice edit -->
+<p><a href="{% url 'my-listings' %}">← Torna alle mie inserzioni</a></p>
+<h1>Modifica inserzione</h1>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label class="form-label">Foto della carta</label>
+        {% if form.instance.owned_card.image %}
+        <img src="{{ form.instance.owned_card.image.url }}" style="max-height: 150px;" class="d-block mb-2 rounded">
+        {% endif %}
+        {{ form.image }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Prezzo (€)</label>
+        {{ form.price }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Descrizione</label>
+        {{ form.description }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Salva modifiche</button>
+</form>
+{% endblock %}

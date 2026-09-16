@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Metti in vendita{% endblock %}
+
+{% block content %}
+<h1>Metti in vendita una carta</h1>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label for="{{ form.owned_card.id_for_label }}" class="form-label">{{ form.owned_card.label }}</label>
+        {{ form.owned_card }}
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.price.id_for_label }}" class="form-label">{{ form.price.label }}</label>
+        {{ form.price }}
+    </div>
+
+    <!--scelta prezzo fisso vs asta -->
+    <div class="mb-3">
+        <label for="{{ form.listing_type.id_for_label }}" class="form-label">{{ form.listing_type.label }}</label>
+        {{ form.listing_type }}
+    </div>
+
+    <!-- Richiesto solo se listing_type='auction' -->
+    <div class="mb-3">
+        <label for="{{ form.auction_end.id_for_label }}" class="form-label">Fine asta (solo se Asta)</label>
+        {{ form.auction_end }}
+    </div>
+
+    <div class="form-check mb-2">
+        {{ form.shipping_available }}
+        <label class="form-check-label" for="{{ form.shipping_available.id_for_label }}">{{ form.shipping_available.label }}</label>
+    </div>
+
+    <div class="form-check mb-3">
+        {{ form.pickup_available }}
+        <label class="form-check-label" for="{{ form.pickup_available.id_for_label }}">{{ form.pickup_available.label }}</label>
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.description.id_for_label }}" class="form-label d-block">{{ form.description.label }}</label>
+        {{ form.description }}
+    </div>
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">Pubblica annuncio</button>
+</form>
+{% endblock %}

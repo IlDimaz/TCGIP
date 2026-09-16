@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Marketplace{% endblock %}
+
+{% block content %}
+<h1>Marketplace</h1>
+
+<!-- Marketplace pensato come pubblico: nessun LoginRequiredMixin nella view, la pagina è accessibile anche senza loggare-->
+{% if user.is_authenticated %}
+<a href="{% url 'marketplace-create' %}" class="btn btn-primary mb-3">+ Metti in vendita</a>
+<a href="{% url 'my-listings' %}" class="btn btn-secondary mb-3">Le mie inserzioni</a>
+{% endif %}
+
+<div class="row">
+    {% for listing in listings %}
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card">
+            {% if listing.owned_card.image %}
+            <img src="{{ listing.owned_card.image.url }}" class="card-img-top" alt="{{ listing.owned_card.card.name }}">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ listing.owned_card.card.name }}</h5>
+
+            <!-- Badge: "Asta" o "Compra Subito"-->
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <span class="badge bg-warning text-dark">{{ listing.get_listing_type_display }}</span>
+                <a href="{% url 'public-profile' listing.owned_card.owner.username %}" class="seller-link">
+                    {{ listing.owned_card.owner.username }}
+                </a>
+            </div>
+
+                {% if listing.listing_type == 'auction' %}
+                <p class="card-text">
+                    {% if listing.highest_bid %}{{ listing.highest_bid.amount }}€
+                    {% else %}da {{ listing.price }}€{% endif %}
+                </p>
+                {% else %}
+                <p class="card-text">{{ listing.price }}€</p>
+                {% endif %}
+
+                <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-secondary">Dettagli</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p>Nessun annuncio attivo al momento.</p>
+    {% endfor %}
+</div>
+{% endblock %}

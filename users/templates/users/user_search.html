@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Cerca utenti{% endblock %}
+{% block content %}
+
+<!-- Banale ricerca account sulla piattaforma -->
+<h4>Risultati per "{{ request.GET.q }}"</h4>
+<form method="get" action="{% url 'user-search' %}" class="mb-3 d-flex gap-2">
+    <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Cerca utente..." class="form-control">
+    <button type="submit" class="btn btn-primary">Cerca</button>
+</form>
+{% for user in results %}
+<p><a href="{% url 'public-profile' user.username %}">{{ user.username }}</a></p>
+{% empty %}
+<p>Nessun utente trovato.</p>
+{% endfor %}
+{% endblock %}

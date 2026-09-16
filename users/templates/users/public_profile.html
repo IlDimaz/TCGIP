@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ profile_user.username }}{% endblock %}
+<!-- pagina pubblica utente, vista da terzi, poche differenze dal profilo privato, principalmente assenza tasto modifica -->
+
+{% block content %}
+<h1>{{ profile_user.username }}</h1>
+
+<!-- Mostrata solo se l'utente ha esplicitamente attivato allow_location -->
+{% if profile_user.allow_location and profile_user.city %}
+<p>📍 {{ profile_user.city }}{% if profile_user.province %}, {{ profile_user.province }}{% endif %}{% if profile_user.country %}, {{ profile_user.country }}{% endif %}</p>
+{% endif %}
+
+<h5 class="mt-4">Annunci attivi</h5>
+<div class="row">
+    {% for listing in listings %}
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card">
+            {% if listing.owned_card.image %}
+            <img src="{{ listing.owned_card.image.url }}" class="card-img-top" alt="{{ listing.owned_card.card.name }}">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ listing.owned_card.card.name }}</h5>
+                <p class="card-text">{{ listing.price }}€</p>
+                <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-secondary">Dettagli</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p>Nessun annuncio attivo al momento.</p>
+    {% endfor %}
+</div>
+
+<h5 class="mt-4">Collezione</h5>
+{% if collection is not None %}
+<div class="row">
+    {% for owned_card in collection %}
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card">
+            {% if owned_card.image %}
+            <img src="{{ owned_card.image.url }}" class="card-img-top" alt="{{ owned_card.card.name }}">
+            {% endif %}
+            <div class="card-body">
+                <h6 class="card-title">{{ owned_card.card.name }}</h6>
+                <p class="form-text mb-1">{{ owned_card.condition }}</p>
+                {% with listing=owned_card.listings.first %}
+                    {% if listing and listing.is_active %}
+                    <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-primary w-100">
+                        In vendita: {{ listing.price }}€
+                    </a>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p>Nessuna carta in collezione.</p>
+    {% endfor %}
+</div>
+{% elif is_owner %}
+<p class="form-text">
+    La tua collezione è privata —
+    <a href="{% url 'profile-edit' %}">rendila pubblica dalle impostazioni</a> se vuoi mostrarla qui.
+</p>
+{% else %}
+<p>Questo utente ha reso la propria collezione privata.</p>
+{% endif %}
+
+<h5 class="mt-4">Recensioni ricevute</h5>
+{% for review in reviews %}
+<div class="card mb-2 p-2">
+    <p>
+        <strong>{{ review.rating }}/5</strong> —
+        {{ review.transaction.listing.owned_card.card.name }}
+        venduta a {{ review.transaction.price }}€
+    </p>
+    {% if review.comment %}
+    <p class="fst-italic">"{{ review.comment }}"</p>
+    {% endif %}
+</div>
+{% empty %}
+<p>Nessuna recensione ricevuta al momento.</p>
+{% endfor %}
+
+{% endblock %}

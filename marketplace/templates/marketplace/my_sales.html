@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Le mie vendite{% endblock %}
+
+{% block content %}
+<h1>Le mie vendite</h1>
+<!-- gestione pagina "le mie vendite" -->
+{% for transaction in transactions %}
+<div class="card mb-3 p-3">
+    <p>
+        <strong>{{ transaction.listing.owned_card.card.name }}</strong> 
+        — {{ transaction.price }}€ —
+        Acquirente: <a href="{% url 'public-profile' transaction.buyer.username %}">{{ transaction.buyer.username }}</a> 
+        — Stato: {{ transaction.get_status_display }}
+        {% if transaction.carrier %} 
+        — Corriere: {{ transaction.get_carrier_display }}
+        {% endif %}
+    </p>
+
+    <!-- dopo la vendita si può selezionare il corriere -->
+    {% if transaction.status == 'pending' %}
+    <form method="post" action="{% url 'transaction-complete' transaction.pk %}" class="d-flex gap-2 align-items-center mt-2">
+        {% csrf_token %}
+        <select name="carrier" class="form-select form-select-sm" style="max-width: 200px;">
+            {% for value, label in transaction.CARRIER_CHOICES %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Conferma spedizione</button>
+    </form>
+    {% endif %}
+
+    {% if transaction.review %}
+    <p class="text-muted mt-2">Recensione ricevuta: {{ transaction.review.rating }}/5 — "{{ transaction.review.comment }}"</p>
+    {% endif %}
+</div>
+{% empty %}
+<p>Non hai ancora effettuato vendite.</p>
+{% endfor %}
+{% endblock %}

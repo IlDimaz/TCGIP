@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Importa collezione da CSV{% endblock %}
+
+{% block content %}
+<h1>Importa la tua collezione da CSV</h1>
+
+<!-- Formato atteso e vincoli: le carte devono già esistere nel catalogo, importate via csv da un admin precedentemente -->
+<p>
+    Inserire CSV formattato come segue: SetCode, Number, Name, CardType, Condition,
+    GradingCompany, Grade, PurchasePrice, MarketValue, Language.
+</p>
+<!-- Import collezione personale, per comodità e passaggio dei file -->
+<form method="post" enctype="multipart/form-data"> <!-- I campi per editing futuri si trovano in cards/forms.py, in cima-->
+    {% csrf_token %}
+    {{ form.csv_file }}
+    <button type="submit" class="btn btn-primary mt-2">Importa</button>
+</form>
+<br>
+<p>Attenzione: Le carte devono già esistere nel catalogo TCGIP.</p>
+
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+<!--Template di gestione pagina import csv-->
+
+{% block title %}Import carte da CSV{% endblock %}
+
+{% block content %}
+<h1>Import carte da CSV</h1>
+
+<!--Messaggi validazione import-->
+{% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<!-- Import catalogo espansioni, solo staff: crea nuove Cards nel database condiviso che potranno poi essere usate per costruire la propria copia fisica -->
+<div class="card p-3 mb-3">
+    <h6>📚 Fonti dati principali</h6>
+    <p class="mb-1">
+        <a href="https://github.com/tradingcarddex/Pokemon-Card-CSV" target="_blank" rel="noopener">Pokémon Card CSV</a>
+        — CSV con colonne Name, Number, Rarity, un file per espansione
+    </p>
+    <p class="mb-0">
+        <a href="https://tcgcsv.com" target="_blank" rel="noopener">TCGCSV</a>
+        — dati aggiornati per più TCG, possibili espansioni future
+    </p>
+</div>
+
+<form method="post" enctype="multipart/form-data"> <!-- I campi per editing futuri si trovano in cards/forms.py-->
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Importa</button>
+</form>
+{% endblock %}
+
+<!-- andrebbe aggiunta un immagine di stock come default in alternativa alle immagini delle PROPRIE carte-->

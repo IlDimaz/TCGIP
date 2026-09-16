@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}La mia collezione{% endblock %}
+
+{% block content %}
+<h1>La mia collezione</h1>
+<!--bottoni in alto nella pagina collezione con varie funzionalità-->
+
+<a href="{% url 'collection-add' %}" class="btn btn-primary mb-3">+ Aggiungi carta</a>
+<a href="{% url 'sold-cards' %}" class="btn btn-secondary mb-3">📊 Contabilità (venduti)</a>
+<a href="{% url 'import-personal-collection' %}" class="btn btn-secondary mb-3">📥 Importa da CSV</a>
+<a href="{% url 'export-collection' %}" class="btn btn-secondary mb-3">📤 Esporta collezione CSV</a>
+
+<!-- Lista di carte in collezione, raggruppate per gioco con tanto di logo -->
+{% for game_name, cards in cards_by_game.items %}
+<div class="mb-4">
+    <h4 class="d-flex align-items-center gap-2">
+        {% with cards.0.card.expansion.game as game %}
+            {% if game.logo %}<img src="{{ game.logo.url }}" style="height: 42px;">{% endif %}<!-- dimensione logo -->
+        {% endwith %}
+        {{ game_name }} <!--nome accanto foto -->
+    </h4>
+     <!--lista carte -->
+    <div class="row">
+        {% for owned_card in cards %}
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card">
+                {% if owned_card.image %}
+                <img src="{{ owned_card.image.url }}" class="card-img-top" alt="{{ owned_card.card.name }}">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ owned_card.card.name }}</h5> <!--nome-->
+                    <p class="card-text">
+                        {% if owned_card.card_type == 'graded' %} <!--grading -->
+                            {{ owned_card.grading_company }} {{ owned_card.grade }}
+                        {% else %}
+                            {{ owned_card.get_condition_display }} <!--condizioni -->
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'collection-edit' owned_card.pk %}" class="btn btn-sm btn-secondary">Modifica</a> <!-- bottoni -->
+                    <a href="{% url 'collection-delete' owned_card.pk %}" class="btn btn-sm btn-danger">Elimina</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<p>Non hai ancora nessuna carta nella collezione.</p> <!-- eccezione collezione vuota-->
+{% endfor %}
+{% endblock %}

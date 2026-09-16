@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Il mio profilo{% endblock %}
+
+<!-- Form per inserire dettagli relativi al proprio profilo -->
+{% block content %}
+<p><a href="{% url 'profile' %}">← Torna al profilo</a></p>
+<h1>Il mio profilo</h1>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <h5 class="mt-4">📍 Posizione</h5>
+    <p>Inserisci città, provincia e stato per facilitare le interazioni con altri utenti.</p>
+
+    {{ form.city.label_tag }} {{ form.city }}
+    {{ form.province.label_tag }} {{ form.province }}
+    {{ form.country.label_tag }} {{ form.country }}
+
+    <div class="form-check mt-3">
+        {{ form.allow_location }}
+        <label class="form-check-label" for="{{ form.allow_location.id_for_label }}">
+            {{ form.allow_location.help_text }}
+        </label>
+    </div>
+
+    <h5 class="mt-4">🃏 Collezione</h5>
+    <div class="form-check mt-3">
+        {{ form.collection_public }}
+        <label class="form-check-label" for="{{ form.collection_public.id_for_label }}">
+            {{ form.collection_public.help_text }}
+        </label>
+    </div>
+
+    <h5 class="mt-4">Immagine profilo</h5>
+    {{ form.profile_image.label_tag }} {{ form.profile_image }}
+
+    <button type="submit" class="btn btn-primary mt-3">Salva modifiche</button>
+</form>
+{% endblock %}

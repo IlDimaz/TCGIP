@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Contabilità - Carte vendute{% endblock %}
+
+{% block content %}
+<h1>Contabilità</h1>
+
+<p>
+    <strong>Guadagno totale realizzato:</strong>
+    <span class="{% if total_profit < 0 %}text-danger{% else %}text-success{% endif %}">
+    {{ total_profit }}€
+</span>
+</p>
+
+<!-- Sezione carte vendute: immagine b/w, acquisto/vendita e guadagno/perdita relativa-->
+<div class="row">
+{% for item in cards_with_diff %}  <!-- le carte con differenza sono quelle che sono state vendute -->
+<div class="col-6 col-md-3 mb-3">
+    <div class="card">
+        {% if item.card.image %}
+        <!-- carta scala di grigi per simboleggiare possesso precedente-->
+        <img src="{{ item.card.image.url }}" class="card-img-top" style="filter: grayscale(100%); opacity: 0.6;" alt="{{ item.card.card.name }}">
+        {% endif %}
+        <div class="card-body">
+            <h5 class="card-title">{{ item.card.card.name }}</h5>
+            <p class="card-text mb-1">Acquisto: {{ item.card.purchase_price|default:"—" }}€</p>
+            <p class="card-text mb-1">Vendita: {{ item.card.sale_price|default:"—" }}€</p>
+    <!-- semplice logica per rosso/verde e +/- nei guadagni in contabilità-->
+            {% if item.diff is not None %}
+            <p class="card-text mb-1">
+                <strong class="{% if item.diff < 0 %}text-danger{% else %}text-success{% endif %}">
+                    {% if item.diff >= 0 %}+{% endif %}{{ item.diff }}€
+                    {% if item.diff_percent is not None %}
+                    <!-- troncamento dato da floatformat:1 %-->
+                    ({% if item.diff_percent >= 0 %}+{% endif %}{{ item.diff_percent|floatformat:1 }}%) 
+                    {% endif %}
+                </strong>
+            </p>
+            {% endif %}
+
+            <p class="text-muted small">Venduta il {{ item.card.sold_date }}</p>
+        </div>
+    </div>
+</div>
+{% empty %}
+<p>Nessuna carta venduta ancora.</p>
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Modifica carta{% else %}Aggiungi carta{% endif %}{% endblock %}
+
+{% block content %}
+<h1>{% if object %}Modifica carta{% else %}Aggiungi carta{% endif %}</h1>
+
+<!-- Form vari ed eventuali caratterizzanti la carta posseduta fisicamente-->
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.card.label }}</label>
+        <input type="text" id="card-filter" class="form-control mb-2" placeholder="Filtra carta per nome intero...">
+        {{ form.card }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.image.label }}</label>
+        {{ form.image }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.card_type.label }}</label>
+        {{ form.card_type }}
+    </div>
+
+    <div class="mb-3" id="raw-fields">
+        <label class="form-label">{{ form.condition.label }}</label>
+        {{ form.condition }}
+    </div>
+
+    <div class="mb-3" id="graded-fields">
+        <label class="form-label">{{ form.grading_company.label }}</label>
+        {{ form.grading_company }}
+        <label class="form-label mt-2">{{ form.grade.label }}</label>
+        {{ form.grade }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.language.label }}</label>
+        {{ form.language }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.notes.label }}</label>
+        {{ form.notes }}
+    </div>
+    
+    <div class="mb-3">
+        <label class="form-label">{{ form.status.label }}</label>
+        {{ form.status }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.purchase_price.label }}</label>
+        {{ form.purchase_price }}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.market_value.label }}</label>
+        {{ form.market_value }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Salva</button>
+</form>
+
+<!-- JS per mostrare/nascondere i campi condition o grading in base al card_type selezionato-->
+<script>
+    function toggleConditionFields() {
+        const cardType = document.getElementById('id_card_type').value;
+        const rawFields = document.getElementById('raw-fields');
+        const gradedFields = document.getElementById('graded-fields');
+
+        if (cardType === 'graded') {
+            rawFields.style.display = 'none';
+            gradedFields.style.display = 'block';
+        } else {
+            rawFields.style.display = 'block';
+            gradedFields.style.display = 'none';
+        }
+    }
+
+    document.getElementById('id_card_type').addEventListener('change', toggleConditionFields);
+    toggleConditionFields();
+
+    // Filtro per nome intero della carta (massimo 10 righe)
+    const cardFilter = document.getElementById('card-filter');
+    cardFilter.addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        for (const opt of document.querySelector('select[name="card"]').options) {
+            opt.hidden = q !== '' && !opt.text.toLowerCase().includes(q);
+        }
+    });
+    cardFilter.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+</script>
+{% endblock %}

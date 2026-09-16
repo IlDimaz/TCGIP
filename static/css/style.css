@@ -1,0 +1,226 @@
+/* ===== VARIABILI TEMA ===== */
+:root {
+  --color-bg: #121212;
+  --color-bg-alt: #1e1e1e;
+  --color-surface: #242424;
+  --color-gold: #d4af37;
+  --color-gold-hover: #e8c65f;
+  --color-gold-dim: #8a7228;
+  --color-text: #f0f0f0;
+  --color-text-muted: #c6c6c6;
+  --color-border: #333333;
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 8px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212, 175, 55, 0.15);
+}
+
+/* ===== BASE ===== */
+body {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 1000px 500px at 50% 0%, rgba(255, 255, 255, 0.055), transparent 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0%, transparent 35%, transparent 65%, rgba(255, 255, 255, 0.03) 100%);
+  background-attachment: fixed;
+  color: var(--color-text);
+  font-family: 'DM Sans', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.5px;
+  color: var(--color-gold);
+  /* Effetto foil/stampa a caldo: ombra dorata sfumata sotto il testo */
+  text-shadow: 0 2px 8px rgba(212, 175, 55, 0.25), 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+a {
+  color: var(--color-gold);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--color-gold-hover);
+}
+
+/* ===== NAVBAR ===== */
+.navbar {
+  background-color: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+.navbar-brand {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: var(--color-gold) !important;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}
+
+.nav-link {
+  color: var(--color-text) !important;
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover {
+  color: var(--color-gold) !important;
+}
+
+/* ===== BOTTONI ===== */
+.btn-primary {
+  background: linear-gradient(180deg, var(--color-gold-hover) 0%, var(--color-gold) 100%);
+  border-color: var(--color-gold);
+  color: #121212;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #f0d878 0%, var(--color-gold-hover) 100%);
+  border-color: var(--color-gold-hover);
+  color: #121212;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* ===== CARD ===== */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-title {
+  color: var(--color-gold);
+}
+
+.card-img-top {
+  height: 190px;
+  object-fit: contain;
+  background-color: #1a1a1a;
+}
+
+.listing-inactive-card,
+.listing-inactive-card:hover {
+  transform: scale(0.92);
+  transform-origin: top center;
+}
+
+/* ===== FORM ===== */
+.form-control, .form-select {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.form-control:focus, .form-select:focus {
+  background-color: var(--color-surface);
+  border-color: var(--color-gold);
+  color: var(--color-text);
+  box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
+.form-control::placeholder {
+  color: var(--color-text-muted) !important;
+  opacity: 0.7;
+}
+
+.input-group-text {
+  background-color: var(--color-bg-alt);
+  color: var(--color-gold);
+  border-color: var(--color-border);
+}
+
+.form-text {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+/* ===== LAYOUT GENERALE & COMPONENTI MARKETPLACE ===== */
+main {
+  min-height: 80vh;
+}
+
+.container {
+  padding-top: 1.5rem;
+}
+
+.card-img-detail {
+  max-height: 350px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+}
+
+.messages-scroll-container {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.notifications-scroll {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.notifications-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 767.98px) {
+  .notifications-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.message-item {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  transition: border-color 0.15s ease;
+}
+
+.message-item:hover {
+  border-color: var(--color-gold-dim);
+}
+
+.text-timestamp {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ===== VARI ===== */
+.text-gold {
+  color: var(--color-gold) !important;
+}
+
+.badge-gold {
+  background-color: var(--color-gold);
+  color: #121212;
+  box-shadow: 0 1px 4px rgba(212, 175, 55, 0.3);
+}
+
+.section-title {
+  color: var(--color-gold);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 1px 6px rgba(212, 175, 55, 0.2);
+}
+
+.btn-outline-message {
+  border-color: var(--color-border);
+  color: var(--color-text);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-outline-message:hover {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}

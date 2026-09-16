@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Le mie inserzioni{% endblock %}
+{% block content %}
+<!-- gestione pagina "le mie inserzioni", la stessa pagina è raggiungibile da marketplace (listing_list) -->
+<h1>Le mie inserzioni</h1>
+
+<!-- Le inserzioni sono separate dalla view in attive e non attive, marketplace/views.py riga 307. -->
+{% for group in listing_groups %}
+<div class="mb-4">
+    <h4>{{ group.title }}</h4>
+    <div class="row">
+        {% for listing in group.listings %}
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card {% if not listing.is_active %}listing-inactive-card{% endif %}">
+                {% if listing.owned_card.image %}
+                <!-- gestione visualizzazione immagine (greyscale per non disponibili)-->
+                <img src="{{ listing.owned_card.image.url }}" class="card-img-top" {% if not listing.is_active %}style="filter: grayscale(100%); opacity: 0.6;"{% endif %} alt="{{ listing.owned_card.card.name }}">
+                {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ listing.owned_card.card.name }}</h5>
+                <span class="badge badge-gold mb-1">{{ listing.get_listing_type_display }}</span>
+                <p class="card-text">{{ listing.price }}€</p>
+                <p class="form-text mb-2">
+                    {% if not listing.is_active %}Venduta / non attiva{% else %}Attiva{% endif %}
+                </p>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'marketplace-detail' listing.pk %}" class="btn btn-sm btn-secondary">Dettagli</a>
+                    <a href="{% url 'listing-edit' listing.pk %}" class="btn btn-sm btn-outline-message">Modifica</a>
+                </div>
+            </div>
+        </div>
+    </div>
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<p>Non hai ancora creato inserzioni.</p>
+{% endfor %}
+{% endblock %}
