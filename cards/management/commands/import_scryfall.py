@@ -22,12 +22,18 @@ from cards.models import Card, Expansion, Game
 DEFAULT_SETS = ['one', 'neo', 'woe', 'mom', 'bro']
 SCRYFALL_API = 'https://api.scryfall.com'
 SETS_URL = f'{SCRYFALL_API}/sets'
-USER_AGENT = 'TCGIP-Django/0.1'
+# User-Agent "umano": senza, Cloudflare risponde 400 alle richieste programmatiche
+USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+              '(KHTML, like Gecko) Chrome/125.0 Safari/537.36')
+REQUEST_HEADERS = {
+    'User-Agent': USER_AGENT,
+    'Accept': 'application/json, text/plain, */*',
+}
 
 
 def fetch_json(url, timeout=30):
     """GET JSON con User-Agent (Scryfall lo richiede)."""
-    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    req = urllib.request.Request(url, headers=REQUEST_HEADERS)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode('utf-8'))
 
@@ -48,7 +54,7 @@ def pick_image_url(card_data, prefer='png'):
 def save_image_to_field(card_obj, image_url):
     """Scarica la copia locale dell'immagine remota e la salva sul campo Image."""
     try:
-        req = urllib.request.Request(image_url, headers={'User-Agent': USER_AGENT})
+        req = urllib.request.Request(image_url, headers=REQUEST_HEADERS)
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = resp.read()
     except (urllib.error.URLError, OSError, ValueError):
@@ -57,6 +63,8 @@ def save_image_to_field(card_obj, image_url):
     filename = f"{card_obj.number.replace('/', '_')}.{ext}"
     card_obj.image.save(filename, ContentFile(data), save=False)
     return True
+
+
 class Command(BaseCommand):
     help = 'Importa il catalogo Magic da Scryfall: giochi, espansioni e carte con immagini.'
 
@@ -94,7 +102,7 @@ class Command(BaseCommand):
             self.stderr.write('Nessun set valido fornito (--sets).')
             return
 
-        game, _ = Game.objects.get_or_create(name=options['game_name'])
+        game = self.resolve_game(options['game_name'])
 
         # Un solo fetch per prendere i metadati di tutte le espansioni richieste
         sets_payload = fetch_json(SETS_URL)
@@ -114,7 +122,21 @@ class Command(BaseCommand):
             f'Fine: {total_created} nuove carte importate.'
         ))
 
+    def resolve_game(self, game_name):
+        """Riusa un gioco già presente se il nome coincide o "inizia" con la parte
+        principale (es. esiste 'Magic' e si importa 'Magic: The Gathering')."""
+        exact = Game.objects.filter(name__iexact=game_name).first()
+        if exact:
+            return exact
+        alias = game_name.split(':')[0].strip()
+        if alias:
+            candidate = Game.objects.filter(name__icontains=alias).first()
+            if candidate:
+                return candidate
+        return Game.objects.create(name=game_name)
+
     # ------------------------------------------------------------------
+
     def import_set(self, game, code, options, sets_by_code):
         set_meta = sets_by_code.get(code)
         if not set_meta:
