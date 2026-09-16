@@ -11,7 +11,7 @@ from .models import ValueSnapshot, OwnedCard
 
 # Chiave range -> (label visibile, giorni fino ad oggi). days=None significa "tutto".
 RANGES = {
-    '1D': ('1D', 1),
+    '3D': ('3D', 3),
     '7D': ('7D', 7),
     '14D': ('14D', 14),
     '1M': ('1M', 30),

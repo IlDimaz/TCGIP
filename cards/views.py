@@ -56,19 +56,28 @@ class OwnerRequiredMixin:
         return super().get_queryset().filter(owner=self.request.user)
 
 
-# Collezione con paginazione + filtri (testo sul nome, gioco del catalogo),
-# così la lista resta leggera anche con migliaia di carte.
+# Collezione con filtri e due modalità di visualizzazione:
+# - vista "per gioco" (default): sezioni con logo + nome del gioco, max 12 carte
+#   a sezione e link "mostra tutte" verso la vista piatta filtra per gioco.
+# - vista "piatta" (?view=flat): griglia paginata (24 per pagina) per sfogliare tutto.
+GAME_SECTION_SIZE = 12
+
+
 class CollectionListView(LoginRequiredMixin, ListView):
     model = OwnedCard
     template_name = 'cards/collection_list.html'
     context_object_name = 'owned_cards'
     paginate_by = 24
 
+    @property
+    def is_flat(self):
+        return self.request.GET.get('view') == 'flat'
+
     def get_queryset(self):
         # status='owned': esclude le carte vendute, che stanno in un'altra view
         qs = OwnedCard.objects.filter(
             owner=self.request.user, status='owned'
-        ).select_related('card__expansion__game').order_by('-id')
+        ).select_related('card__expansion__game')
 
         query = self.request.GET.get('q', '').strip()
         if query:
@@ -77,6 +86,12 @@ class CollectionListView(LoginRequiredMixin, ListView):
         game_id = self.request.GET.get('game', '').strip()
         if game_id.isdigit():
             qs = qs.filter(card__expansion__game_id=int(game_id))
+
+        if self.is_flat:
+            qs = qs.order_by('-id')
+        else:
+            # ordinamento stabile per raggruppare i giochi (groupby)
+            qs = qs.order_by('card__expansion__game__name', '-id')
         return qs
 
     def get_context_data(self, **kwargs):
@@ -90,7 +105,26 @@ class CollectionListView(LoginRequiredMixin, ListView):
         context['filters'] = {
             'q': self.request.GET.get('q', ''),
             'game': self.request.GET.get('game', ''),
+            'view': 'flat' if self.is_flat else '',
         }
+        context['is_flat'] = self.is_flat
+
+        # Vista "per gioco": raggruppa per gioco, sezione limitata + link "mostra tutte"
+        cards_by_game = []
+        if not self.is_flat:
+            from itertools import groupby
+            for game, group in groupby(
+                full_qs,
+                key=lambda c: c.card.expansion.game,
+            ):
+                group = list(group)
+                cards_by_game.append({
+                    'game': game,
+                    'cards': group[:GAME_SECTION_SIZE],
+                    'count': len(group),
+                    'more': len(group) > GAME_SECTION_SIZE,
+                })
+        context['cards_by_game'] = cards_by_game
         return context
 
 

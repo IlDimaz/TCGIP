@@ -1,0 +1,23 @@
+{% load static %}
+<div class="card">
+    {% if owned_card.display_image_url %}
+    <img src="{{ owned_card.display_image_url }}" class="card-img-top" alt="{{ owned_card.card.name }}" loading="lazy">
+    {% endif %}
+    <div class="card-body">
+        <h5 class="card-title">{{ owned_card.card.name }}</h5>
+        <p class="form-text mb-1">
+            {{ owned_card.card.expansion.code }} {{ owned_card.card.number }}
+            {% if owned_card.card.rarity %}({{ owned_card.card.rarity }}){% endif %}
+        </p>
+        <p class="card-text mb-2">
+            {% if owned_card.card_type == 'graded' %}
+                {{ owned_card.grading_company }} {{ owned_card.grade }}
+            {% else %}
+                {{ owned_card.get_condition_display }}
+            {% endif %}
+            {% if owned_card.market_value is not None %} · {{ owned_card.market_value }}€{% endif %}
+        </p>
+        <a href="{% url 'collection-edit' owned_card.pk %}" class="btn btn-sm btn-secondary">Modifica</a>
+        <a href="{% url 'collection-delete' owned_card.pk %}" class="btn btn-sm btn-danger">Elimina</a>
+    </div>
+</div>

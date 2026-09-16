@@ -106,10 +106,12 @@ class ChartRangesTestCase(TestCase):
             ))
 
     def test_parse_range_defaults_to_all(self):
-        from cards.services import parse_range
+        from cards.services import RANGES, parse_range
         self.assertEqual(parse_range(None), 'ALL')
         self.assertEqual(parse_range('7d'), '7D')
         self.assertEqual(parse_range('nonsense'), 'ALL')
+        self.assertIn('3D', RANGES)
+        self.assertNotIn('1D', RANGES)
 
     def test_build_chart_series_math(self):
         from cards.services import build_chart_series
@@ -119,11 +121,13 @@ class ChartRangesTestCase(TestCase):
         self.assertAlmostEqual(series['change_pct'], 35.0, places=4)
         self.assertAlmostEqual(series['change_abs'], 35.0, places=4)
 
-    def test_build_chart_series_filters_old_points(self):
+    def test_build_chart_series_filters_old_points_3d(self):
         from cards.services import build_chart_series
-        series = build_chart_series(self.snapshots, '1D')  # solo oggi
-        self.assertEqual(series['relative'], [100.0])
-        self.assertEqual(series['change_pct'], 0.0)
+        # range 3D: inizia a oggi-3 giorni -> restano le rilevazioni di oggi-2 e oggi
+        series = build_chart_series(self.snapshots, '3D')
+        self.assertEqual(series['values'], [90.0, 135.0])
+        self.assertEqual(series['relative'], [100.0, 150.0])
+        self.assertAlmostEqual(series['change_pct'], 50.0, places=4)
 
     def test_home_renders_range_menu_and_stats(self):
         # un owned card da 135€ -> lo snapshot di oggi resta coerente
@@ -187,21 +191,41 @@ class CollectionPaginationTestCase(TestCase):
         for i in range(30):
             OwnedCard.objects.create(owner=self.user, card=self.card, status='owned', market_value=i)
 
-    def test_collection_is_paginated_by_24(self):
+    def test_collection_is_paginated_by_24_in_flat_view(self):
         self.client.login(username='paguser', password='pw12345!')
-        response = self.client.get(reverse('collection'))
+        response = self.client.get(reverse('collection'), {'view': 'flat'})
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['is_flat'], True)
         self.assertEqual(len(response.context['owned_cards']), 24)
         self.assertEqual(response.context['total_count'], 30)
 
-        response = self.client.get(reverse('collection'), {'page': 2})
+        response = self.client.get(reverse('collection'), {'view': 'flat', 'page': 2})
         self.assertEqual(len(response.context['owned_cards']), 6)
+
+    def test_collection_grouped_by_game_by_default(self):
+        self.client.login(username='paguser', password='pw12345!')
+        response = self.client.get(reverse('collection'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['is_flat'], False)
+        groups = response.context['cards_by_game']
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]['game'].name, 'MTG')
+        self.assertEqual(groups[0]['count'], 30)
+
+    def test_collection_grouped_section_is_capped(self):
+        # 15 carte dello stesso gioco -> nel gruppo ne vengono mostrate al max 12
+        self.client.login(username='paguser', password='pw12345!')
+        response = self.client.get(reverse('collection'))
+        group = response.context['cards_by_game'][0]
+        self.assertEqual(group['count'], 30)
+        self.assertEqual(len(group['cards']), 12)
+        self.assertTrue(group['more'])
 
     def test_collection_filters_by_name(self):
         self.client.login(username='paguser', password='pw12345!')
         response = self.client.get(reverse('collection'), {'q': 'inesistente'})
         self.assertEqual(response.context['total_count'], 0)
-        self.assertEqual(list(response.context['owned_cards']), [])
+        self.assertEqual(response.context['cards_by_game'], [])
 
     def test_collection_filters_by_game(self):
         self.client.login(username='paguser', password='pw12345!')
@@ -212,6 +236,8 @@ class CollectionPaginationTestCase(TestCase):
 
         response = self.client.get(reverse('collection'), {'game': other_game.id})
         self.assertEqual(response.context['total_count'], 1)
+        self.assertEqual(len(response.context['cards_by_game']), 1)
+        self.assertEqual(response.context['cards_by_game'][0]['game'].name, 'Altro Gioco')
 
 
 class SnapshotRefreshTestCase(TestCase):
@@ -342,3 +368,74 @@ class ImportScryfallCommandTestCase(TestCase):
 
         expansion = Expansion.objects.get(code='NEO')
         self.assertEqual(expansion.cards.count(), 1)  # nessun duplicato
+        expansion = Expansion.objects.get(code='NEO')
+        self.assertEqual(expansion.cards.count(), 1)  # nessun duplicato
+
+
+class ImportPokemonCommandTestCase(TestCase):
+    def test_import_creates_pokemon_set(self):
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        from cards.management.commands import import_pokemon
+
+        cards_payload = {
+            'data': [
+                {
+                    'name': 'Armarouge', 'number': '043', 'rarity': 'Rare',
+                    'set': {'id': 'sv1', 'name': 'Scarlet & Violet', 'releaseDate': '2023/03/31'},
+                    'images': {'large': 'https://images.pokemontcg.io/sv1/43_hires.png',
+                               'small': 'https://images.pokemontcg.io/sv1/43.png'},
+                },
+            ],
+            'page': 1, 'pageSize': 250, 'totalCount': 1,
+        }
+
+        def fake(url, timeout=30, extra_headers=None, retries=3):
+            return cards_payload
+
+        with patch.object(import_pokemon, 'fetch_json', side_effect=fake):
+            call_command('import_pokemon', sets='sv1', sleep=0, verbosity=0)
+
+        game = Game.objects.get(name='Pokémon')
+        expansion = Expansion.objects.get(code='SV1', game=game)
+        self.assertEqual(expansion.name, 'Scarlet & Violet')
+        card = expansion.cards.get(number='043')
+        self.assertEqual(card.name, 'Armarouge')
+        self.assertEqual(card.rarity, 'Rare')
+        self.assertEqual(card.image_url, 'https://images.pokemontcg.io/sv1/43_hires.png')
+
+
+class ImportYgoCommandTestCase(TestCase):
+    def test_import_creates_ygo_set(self):
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        from cards.management.commands import import_ygo
+
+        cardinfo_payload = {
+            'data': [
+                {
+                    'name': 'Dark Magician',
+                    'card_sets': [
+                        {'set_name': 'Legend of Blue Eyes White Dragon',
+                         'set_code': 'LOB-EN000', 'set_rarity_code': '(UR)'},
+                    ],
+                    'card_images': [
+                        {'image_url': 'https://images.ygoprodeck.com/images/cards/46986414.jpg'},
+                    ],
+                },
+            ],
+        }
+
+        with patch.object(import_ygo, 'fetch_json', return_value=cardinfo_payload):
+            call_command('import_ygo', sets='Legend of Blue Eyes White Dragon', verbosity=0)
+
+        game = Game.objects.get(name='Yu-Gi-Oh!')
+        expansion = Expansion.objects.get(code='LOB', game=game)
+        card = expansion.cards.get(number='000')
+        self.assertEqual(card.name, 'Dark Magician')
+        self.assertEqual(card.image_url, 'https://images.ygoprodeck.com/images/cards/46986414.jpg')
+        self.assertEqual(expansion.cards.count(), 1)

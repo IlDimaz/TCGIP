@@ -8,34 +8,17 @@ Esempi:
   python manage.py import_scryfall --sets one --limit 50 --download-images
 """
 
-import json
 import time
-import urllib.error
-import urllib.request
 from urllib.parse import urlencode
 
-from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 
-from cards.models import Card, Expansion, Game
+from cards.importers import download_image, fetch_json, resolve_game, upsert_card
+from cards.models import Expansion
 
 DEFAULT_SETS = ['one', 'neo', 'woe', 'mom', 'bro']
 SCRYFALL_API = 'https://api.scryfall.com'
 SETS_URL = f'{SCRYFALL_API}/sets'
-# User-Agent "umano": senza, Cloudflare risponde 400 alle richieste programmatiche
-USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-              '(KHTML, like Gecko) Chrome/125.0 Safari/537.36')
-REQUEST_HEADERS = {
-    'User-Agent': USER_AGENT,
-    'Accept': 'application/json, text/plain, */*',
-}
-
-
-def fetch_json(url, timeout=30):
-    """GET JSON con User-Agent (Scryfall lo richiede)."""
-    req = urllib.request.Request(url, headers=REQUEST_HEADERS)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode('utf-8'))
 
 
 def pick_image_url(card_data, prefer='png'):
@@ -49,20 +32,6 @@ def pick_image_url(card_data, prefer='png'):
         if imgs.get(key):
             return imgs[key]
     return ''
-
-
-def save_image_to_field(card_obj, image_url):
-    """Scarica la copia locale dell'immagine remota e la salva sul campo Image."""
-    try:
-        req = urllib.request.Request(image_url, headers=REQUEST_HEADERS)
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = resp.read()
-    except (urllib.error.URLError, OSError, ValueError):
-        return False
-    ext = 'png' if '.png' in image_url else 'jpg'
-    filename = f"{card_obj.number.replace('/', '_')}.{ext}"
-    card_obj.image.save(filename, ContentFile(data), save=False)
-    return True
 
 
 class Command(BaseCommand):
@@ -102,7 +71,7 @@ class Command(BaseCommand):
             self.stderr.write('Nessun set valido fornito (--sets).')
             return
 
-        game = self.resolve_game(options['game_name'])
+        game = resolve_game(options['game_name'])
 
         # Un solo fetch per prendere i metadati di tutte le espansioni richieste
         sets_payload = fetch_json(SETS_URL)
@@ -121,19 +90,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'Fine: {total_created} nuove carte importate.'
         ))
-
-    def resolve_game(self, game_name):
-        """Riusa un gioco già presente se il nome coincide o "inizia" con la parte
-        principale (es. esiste 'Magic' e si importa 'Magic: The Gathering')."""
-        exact = Game.objects.filter(name__iexact=game_name).first()
-        if exact:
-            return exact
-        alias = game_name.split(':')[0].strip()
-        if alias:
-            candidate = Game.objects.filter(name__icontains=alias).first()
-            if candidate:
-                return candidate
-        return Game.objects.create(name=game_name)
 
     # ------------------------------------------------------------------
 
@@ -194,30 +150,14 @@ class Command(BaseCommand):
         number = str(card_data.get('collector_number', ''))
         rarity = card_data.get('rarity', '')
 
-        card_obj, created = Card.objects.get_or_create(
-            expansion=expansion,
-            number=number,
-            defaults={'name': name, 'rarity': rarity, 'image_url': ref_url},
+        card_obj, created = upsert_card(
+            expansion, name, number, rarity, image_url=ref_url,
         )
-
-        if not created:
-            # Re-run idempotente: completa i campi vuoti
-            updates = {}
-            if not card_obj.name and name:
-                updates['name'] = name
-            if not card_obj.rarity and rarity:
-                updates['rarity'] = rarity
-            if not card_obj.image_url and ref_url:
-                updates['image_url'] = ref_url
-            if updates:
-                for key, value in updates.items():
-                    setattr(card_obj, key, value)
-                card_obj.save(update_fields=list(updates.keys()))
 
         if options['download_images'] and card_obj.image_url and not card_obj.image:
             prefer = 'png' if options['full_images'] else 'normal'
             dl_url = pick_image_url(card_data, prefer=prefer)
-            if dl_url and save_image_to_field(card_obj, dl_url):
+            if dl_url and download_image(card_obj, dl_url):
                 card_obj.save(update_fields=['image'])
 
         return created
