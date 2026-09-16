@@ -54,7 +54,7 @@ def build_chart_series(snapshots, range_key):
 
     - values: valori assoluti (€)
     - relative: valori "relativi", con il primo punto fissato a 100,
-      così '1D' e 'ALL' diventano confrontabili a colpo d'occhio
+      così '3D' e 'ALL' diventano confrontabili a colpo d'occhio
     - change_pct: variazione % tra primo e ultimo punto del range
     - statica: un solo punto -> 0%, senza dati -> None
     """

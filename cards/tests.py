@@ -83,7 +83,7 @@ class StaffOnlyImportTestCase(TestCase):
 
 
 class ChartRangesTestCase(TestCase):
-    """Menu range 1D/7D/14D/1M/3M/6M/1Y/5Y/ALL + variazioni % nel periodo."""
+    """Menu range 3D/7D/14D/1M/3M/6M/1Y/5Y/ALL + variazioni % nel periodo."""
 
     def setUp(self):
         from datetime import timedelta

@@ -26,7 +26,7 @@ def home(request):
     # Garantisce che lo snapshot di oggi esista e rifletta le carte correnti
     refresh_snapshot(request.user)
 
-    # Range selezionato: 1D, 7D, 14D, 1M, 3M, 6M, 1Y, 5Y, ALL
+    # Range selezionato: 3D, 7D, 14D, 1M, 3M, 6M, 1Y, 5Y, ALL
     range_key = parse_range(request.GET.get('range'))
     days = RANGES[range_key][1]
 
